@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RELAY-CN Token 提取</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px 16px; background: #0f1923; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        .card { background: #1a2d3d; border-radius: 16px; padding: 28px 20px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        h2 { font-size: 22px; margin-bottom: 6px; color: #fff; }
+        .sub { font-size: 13px; color: #8fa3b1; margin-bottom: 18px; }
+        .steps { text-align: left; background: #11212e; border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; line-height: 1.8; color: #bccbd8; }
+        .steps span { color: #ffb347; font-weight: bold; }
+        button { background: #e94560; color: #fff; border: none; padding: 15px 30px; font-size: 17px; border-radius: 25px; cursor: pointer; width: 100%; font-weight: bold; letter-spacing: 0.5px; transition: background 0.2s; }
+        button:active { background: #c0392b; }
+        #result { margin-top: 16px; padding: 12px; background: #0c1a24; border-radius: 8px; font-size: 12px; word-break: break-all; color: #8fa3b1; min-height: 40px; }
+        #result.success { color: #2ecc71; }
+        #result.error { color: #e74c3c; }
+        .tip { margin-top: 18px; font-size: 12px; color: #5a6e7e; line-height: 1.6; }
+        .tip code { background: #11212e; padding: 2px 6px; border-radius: 4px; color: #ffb347; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🔑 RELAY-CN Token 提取</h2>
+        <p class="sub">一键获取登录凭证</p>
+
+        <div class="steps">
+            <p><span>①</span> 请先在当前浏览器登录 <b>dash.rw.der.kim</b></p>
+            <p><span>②</span> 登录成功后，回到本页面</p>
+            <p><span>③</span> 点击下方按钮复制 Token</p>
+        </div>
+
+        <button onclick="getToken()">📋 点击复制 Token</button>
+        <div id="result"></div>
+
+        <div class="tip">
+            <p>复制成功后，回到 <b>QQ</b> 私信机器人：</p>
+            <p><code>绑定Token [粘贴]</code></p>
+            <p style="margin-top:8px;">⚠️ Token 是登录凭证，请勿发给他人</p>
+        </div>
+    </div>
+
+    <script>
+        function getToken() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = '';
+            resultDiv.textContent = '正在提取...';
+
+            // 方法1：尝试从 localStorage 获取
+            const token = localStorage.getItem('token');
+            if (token) {
+                copyAndShow(token);
+                return;
+            }
+
+            // 方法2：通过 fetch /info 触发浏览器自动带 Cookie，然后检查是否有返回
+            fetch('https://dash.rw.der.kim/info', { credentials: 'include' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.code === 200 && data.data) {
+                        // 再次尝试从 localStorage 获取
+                        const retryToken = localStorage.getItem('token');
+                        if (retryToken) {
+                            copyAndShow(retryToken);
+                        } else {
+                            // 尝试从 sessionStorage 获取
+                            const sessionToken = sessionStorage.getItem('token');
+                            if (sessionToken) {
+                                copyAndShow(sessionToken);
+                            } else {
+                                // 最后尝试遍历所有 localStorage 键
+                                let found = null;
+                                for (let i = 0; i < localStorage.length; i++) {
+                                    const key = localStorage.key(i);
+                                    const val = localStorage.getItem(key);
+                                    if (val && val.startsWith('eyJ') && val.length > 50) {
+                                        found = val;
+                                        break;
+                                    }
+                                }
+                                if (found) {
+                                    copyAndShow(found);
+                                } else {
+                                    resultDiv.className = 'error';
+                                    resultDiv.textContent = '❌ 未找到 Token。请确认你已在当前浏览器登录 dash.rw.der.kim。';
+                                }
+                            }
+                        }
+                    } else {
+                        resultDiv.className = 'error';
+                        resultDiv.textContent = '❌ 未检测到登录状态，请先登录 dash.rw.der.kim';
+                    }
+                })
+                .catch(() => {
+                    resultDiv.className = 'error';
+                    resultDiv.textContent = '❌ 请求失败。请确认已登录 dash.rw.der.kim，并允许跨站访问。';
+                });
+        }
+
+        function copyAndShow(token) {
+            const resultDiv = document.getElementById('result');
+            const text = token;
+
+            // 复制到剪贴板
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    resultDiv.className = 'success';
+                    resultDiv.textContent = '✅ Token 已复制到剪贴板！\n请回 QQ 私信机器人发送：绑定Token ' + text.substring(0, 30) + '...';
+                }).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const resultDiv = document.getElementById('result');
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                resultDiv.className = 'success';
+                resultDiv.textContent = '✅ Token 已复制到剪贴板！\n请回 QQ 私信机器人发送：绑定Token ' + text.substring(0, 30) + '...';resultDiv.textContent = '✅ 令牌已复制到剪贴板！ 请回 QQ 私信机器人发送：绑定Token ' + text.substring(0, 30) + '...';
+            } catch (e) {
+                resultDiv.className = 'success';
+                resultDiv.textContent = '📋 请手动复制：\n' + text;
+            }
+            document.body.removeChild(textarea);
+        }
+    </script></脚本>
+</body>
+</html>
